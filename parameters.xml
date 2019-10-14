@@ -1,0 +1,29 @@
+<?xml version= "1.0"?>
+
+<params>
+    <conditions>
+        <cond> 
+            <instruction>Rest</instruction>
+            <numb>0<numb/>
+        </cond> 
+        <cond> 
+            <instruction>Open</instruction>
+            <numb>1<numb/>
+        </cond> 
+        <cond> 
+            <instruction>Close</instruction>
+            <numb>2<numb/>
+        </cond> 
+        <cond> 
+            <instruction>Open+exo</instruction>
+            <numb>3<numb/>
+        </cond> 
+        <cond> 
+            <instruction>Close+exo</instruction>
+            <numb>4<numb/>
+        </cond>   
+    </conditions>
+    
+    <time_condition> 5 </time_condition> <!-- In seconds --> 
+    <n_repetitions>2</n_repetitions>
+</params>
