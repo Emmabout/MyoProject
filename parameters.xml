@@ -1,29 +1,16 @@
 <?xml version= "1.0"?>
 
-<params>
+<data>
     <conditions>
-        <cond> 
-            <instruction>Rest</instruction>
-            <numb>0<numb/>
-        </cond> 
-        <cond> 
-            <instruction>Open</instruction>
-            <numb>1<numb/>
-        </cond> 
-        <cond> 
-            <instruction>Close</instruction>
-            <numb>2<numb/>
-        </cond> 
-        <cond> 
-            <instruction>Open+exo</instruction>
-            <numb>3<numb/>
-        </cond> 
-        <cond> 
-            <instruction>Close+exo</instruction>
-            <numb>4<numb/>
-        </cond>   
+        <!-- "Rest must stay as first condition" --> 
+        <cond instruction="Rest" number="0" filename="photos/rest.jpg"/> 
+        
+        <cond instruction="Open" number="1" filename="photos/open.jpg"/> 
+        <cond instruction="Close" number="2" filename="photos/close.jpg"/> 
+        <cond instruction="Open+exo" number="3" filename="photos/open+exo.jpg"/> 
+        <cond instruction="Close+exo" number="4" filename="photos/close+exo.jpg"/>  
     </conditions>
     
-    <time_condition> 5 </time_condition> <!-- In seconds --> 
-    <n_repetitions>2</n_repetitions>
-</params>
+     <!-- Time in seconds --> 
+    <params time="5" n_repetitions="5"/>
+</data>

@@ -14,7 +14,7 @@ import pyqtgraph as pg
 import scipy.io as sio
 from numpy.core.records import fromarrays
 import time
-import xml.etree.ElementTree as ET  # to write xml files
+import xml.etree.ElementTree as ET  # to read xml files
 
 #GUI Interface
 import tkinter
@@ -67,6 +67,8 @@ pat_age = '0'
 
 # conditions
 condition = np.array([0])  # 0 : rest. 1 : open. 2 : close. 3 : open+exo. 4 : close+exo.
+instructions = np.array([["0", 0, 0, 0]])
+time_condition = 0
 
 #win = pg.GraphicsWindow(title="Myo data")
 #QtGui.QApplication.setGraphicsSystem('raster')
@@ -78,16 +80,17 @@ condition = np.array([0])  # 0 : rest. 1 : open. 2 : close. 3 : open+exo. 4 : cl
 # myo thread
 # -----------------------------------------------
 def thread_myo():
-    global emg_data_buffer, emg_data_latest, quat_data_latest, quat_data_buffer, acc_data_latest, acc_data_buffer, gyro_data_latest, gyro_data_buffer, simulated
+    global emg_data_buffer, emg_data_latest, quat_data_latest, quat_data_buffer, acc_data_latest, acc_data_buffer, gyro_data_latest, gyro_data_buffer
     global Niteration, thread_ended
     global emg_tot, quat_tot, acc_tot, gyro_tot
     global time0, time_tot
-    global condition
+    global condition, instructions, time_condition
 
     # run loop
     print('Myo thread started.')
     # time will be in milliseconds (hence *1000)
     time0 = time.time()*1000
+    instr = instructions
 
     while True:
         # check if thread has to be terminated
@@ -137,16 +140,31 @@ def thread_myo():
         gyro_tot = buildtotal(gyro_data_latest, gyro_tot, 3)
         
         
-        # build the vector condition : if the modulo of time by 10000 is between 0 and 5000ms, the instruction given is rest (0). Else, the condition takes a random value between 1 and 4, iving the instruction for the patient ONLY if the previous value of 'condition' was 0. Else, 'condition' takes its previous value.
+        # Build the vector condition : if the modulo of time by 10000 is between 0 and 5000ms, 
+        # the instruction given is rest (0). Else, the condition takes a random value between 1 and 4, 
+        # giving the instruction for the patient ONLY if the previous value of 'condition' was 0. 
+        # Else, 'condition' takes its previous value.
         
-        if (time_prov % 10000) >= 0 and (time_prov % 10000) <= 5000 :
-            condition = np.append(condition, [0], axis=0)     
+        lim = int(time_condition) * 2 * 1000
+
+        if (time_prov % lim) >= 0 and (time_prov % lim) <= int(time_condition)*1000 :
+            condition = np.append(condition, [instr[0, 1]], axis=0)     
+            if instr.shape[0] == 1:
+                terminate_program = True
+
         else :
             if condition [-1] == 0:
-                condition = np.append(condition, [2], axis=0) #np.append(condition, [np.random.randint(1,5)], axis=0)
-                
+                n = np.random.randint(1, instr.shape[0])
+                condition = np.append(condition, [instr[n, 1]], axis=0)
+                instr[n, 2] -= 1
+
+                if instr[n, 2] == 0:
+                    instr = np.delete(instr, n, 0)
+                    
             else :
                 condition = np.append(condition, [condition[-1]], axis=0) 
+
+        # print(instr)
 
 
 # -----------------------------------------------
@@ -298,7 +316,24 @@ def plot_graphs():
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
         QtGui.QApplication.instance().exec_()
         
-        
+
+# -----------------------------------------------
+#  Read xml file
+# -----------------------------------------------
+def read_xml():
+    global instructions, time_condition
+
+    root = ET.parse('parameters.xml').getroot()
+
+    for element in root.findall('params'):
+        time_condition = element.get('time')
+        n_repetitions = element.get('n_repetitions')
+
+    for condi in root.findall('conditions/cond'):
+        ins = [[condi.get('instruction'), int(condi.get('number')), int(n_repetitions), condi.get('filename')]]
+        instructions = np.vstack((instructions, np.asarray(ins, object)))
+    instructions = np.delete(instructions, 0, axis=0)
+
 # -----------------------------------------------
 # Save to matlab file
 # -----------------------------------------------
@@ -327,16 +362,12 @@ def save_file():
     dico['time'] = time_tot
     dico['condition'] = condition
     
-    
     if arm.get == 1 :
         dico['arm'] = 'left'
     else :
-
         dico['arm'] = 'right'
         
-    
     sio.savemat('%s_%s.mat' %(cdate, pat_name), dico)
-    
     
 
 # -----------------------------------------------
@@ -394,44 +425,55 @@ def GUIwindow_data ():
 # -----------------------------------------------
 def GUIwindow_instr ():
     
-    global time_tot
+    global time_tot, instructions
     window = tkinter.Tk()
-    window.geometry("500x100") 
+    window.geometry("500x600") 
     window.title("Instructions")
-    
+
     message = tkinter.StringVar()
     
+    img = [Image.open(instructions[0, 3])]
+
+    #create an array of all the photos
+    for i in range (1, instructions.shape[0]):
+        img.append(Image.open(instructions[i, 3]))
+    
+    #resize the photos
+    for i in range (0, instructions.shape[0]):
+        img[i] = ImageTk.PhotoImage(img[i].resize((250, 480)))
+
+    panel = tkinter.Label(window, image=img[0])
+    panel.grid (row=0, column=1)
+
     def update():
-        global condition
-        if condition[-1] == 0:
-            message.set("Rest")
-            #photo = Image.open("rest.jpg")
-        elif condition[-1] == 1:
-            message.set("Open")    
-        elif condition[-1] == 2:
-            message.set("Close")
-        elif condition[-1] == 3:
-            message.set("Open with exo")
-        elif condition[-1] == 4:
-            message.set("Close with exo")
-            
+        global instructions, condition
         
+        for i in range (0, instructions.shape[0]):
+            if condition[-1] == instructions[i, 1]:
+                msg = instructions[i,0]
+                message.set(msg) 
+                photo = img[i]
+
+        panel.configure(image = photo)
+        panel.image = photo
         window.after(300, update)
     
-    #imglbl = tkinter.Label(image=photo).grid()
-    msglbl = tkinter.Label(window, textvariable=message).grid()
+    tkinter.Label(window, textvariable=message).grid(row=1, column=1)
+
     def quitprog ():
         global terminate_program
         terminate_program = True
         window.quit()    
     
-    
+    window.columnconfigure(1, weight=1)
+    window.rowconfigure(0, weight=1)
+
     # buttons exit and save
     btn_exit = tkinter.Button(window, text="Exit", command=sys.exit, fg='red')
     btn_exit.grid(row=2, column=0, sticky='sw')    
 
     btn_save = tkinter.Button(window, text="Save", command=quitprog)
-    btn_save.grid(row=2, column=2, sticky='se')
+    btn_save.grid(row=2, column=2, sticky='e')
     
     window.after(300, update)
     window.mainloop()
@@ -443,26 +485,17 @@ def GUIwindow_instr ():
 def main(argv):
     import subprocess
 
-    # --- say hello!
-    #print('Alive and breathing!\n')
     global file_handle
     global plot_graph, thread_ended
    
-
-    try:
-        opts, args = getopt.getopt(argv,"hsgxf:v",["filename="])
-    except getopt.GetoptError:
-        usage()
-    
+    read_xml()
     GUIwindow_data()
     setup_myo()
     #plot_graphs()
     GUIwindow_instr()
     while not thread_ended:
         pass
-    '''txt = ""
-    while txt == "":
-        txt = input("")'''
+
     save_file()
 
 # -----------------------------------------------
