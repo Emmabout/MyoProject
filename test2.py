@@ -1,42 +1,41 @@
 from __future__ import print_function
 from collections import Counter, deque
 import _thread #python2
-#import threading # python3
 import sys
-import getopt
-import time
 import numpy as np
-#from common import *
-sys.path.append('./myo_raw/')       # append local directory './myo_raw' (containing python myo apis) to the path
+
+# append local directory './myo_raw' (containing python myo apis) to the path
+sys.path.append('./myo_raw/')       
 from myo_raw import MyoRaw          # myo APIs
+
 from pyqtgraph.Qt import QtGui, QtCore
 import pyqtgraph as pg
-import scipy.io as sio
-from numpy.core.records import fromarrays
+
+import scipy.io as sio  #Save as .mat files
+
 import time
-import xml.etree.ElementTree as ET  # to read xml files
+from datetime import date
+
+import xml.etree.ElementTree as ET  # Read xml files
 
 #GUI Interface
 import tkinter
 from tkinter.ttk import Labelframe
-from datetime import date
-
-#to put images in GUi window
 from PIL import Image, ImageTk
 
 #pyqtgraph.examples.run()
 
 # -----------------------------------------------
-# global variables
+# Global variables
 # -----------------------------------------------
 BUFFER_SIZE = 1000
-Niteration = 0
-file_handle = 0
+
 myo = 0
 myo_initialized = False
+
 time0 = 0
-
-
+time_previous = 0
+time_next = 0
 
 emg_data_buffer = np.zeros((BUFFER_SIZE, 8))
 emg_data_latest = np.zeros((1, 8))
@@ -47,7 +46,7 @@ acc_data_latest = np.zeros((1, 3))
 gyro_data_buffer = np.zeros((BUFFER_SIZE, 3))
 gyro_data_latest = np.zeros((1, 3))
 
-# final arrays 
+# Final arrays for EMG, accelerometer, gyroscope, and time
 emg_tot = np.array([[0, 0, 0, 0, 0, 0, 0, 0]])
 quat_tot = np.array([[0, 0, 0, 0]])
 acc_tot = np.array([[0, 0, 0]])
@@ -57,54 +56,46 @@ time_tot = np.array([0])
 terminate_program = False
 thread_ended = False
 plot_graph = False
-#app = QtGui.QApplication([])
-app = 0
 
-# date, patient data
+# Date, patient data
 cdate = 0
 pat_name = '0'
 pat_age = '0'
+arm = '0'
 
-# conditions
-condition = np.array([0])  # 0 : rest. 1 : open. 2 : close. 3 : open+exo. 4 : close+exo.
-instructions = np.array([["0", 0, 0, 0]])
-time_condition = 0
-
-#win = pg.GraphicsWindow(title="Myo data")
-#QtGui.QApplication.setGraphicsSystem('raster')
-#mw = QtGui.QMainWindow()
-#mw.resize(800,800)
-
+# Conditions : can be set in parameters.xml
+condition = np.array([0])
+instructions = np.array([["0", 0, 0, 0, 0]])
 
 # -----------------------------------------------
 # myo thread
 # -----------------------------------------------
 def thread_myo():
-    global emg_data_buffer, emg_data_latest, quat_data_latest, quat_data_buffer, acc_data_latest, acc_data_buffer, gyro_data_latest, gyro_data_buffer
-    global Niteration, thread_ended
+    global emg_data_buffer, emg_data_latest, quat_data_latest, \
+           quat_data_buffer, acc_data_latest, acc_data_buffer, gyro_data_latest, \
+           gyro_data_buffer
+    global thread_ended
     global emg_tot, quat_tot, acc_tot, gyro_tot
-    global time0, time_tot
-    global condition, instructions, time_condition
+    global time0, time_tot, time_previous, time_next
+    global condition, instructions
 
     # run loop
     print('Myo thread started.')
-    # time will be in milliseconds (hence *1000)
-    time0 = time.time()*1000
+
+    time0 = time.time()*1000    # Time is in milliseconds
     instr = instructions
+    time_previous = 0
+    time_next = time_previous + instr[0, 2]*1000
 
     while True:
         # check if thread has to be terminated
         global terminate_program
-        
         if terminate_program:
-            print('Myo thread terminated')
+            print('Myo thread terminated.')
             thread_ended = True
             _thread.exit_thread()    
 
         myo.run()
-        
-        # update Niterations
-        Niteration= Niteration+1
 
         # update buffers
         emg_data_buffer = np.roll(emg_data_buffer,-1,0)
@@ -140,32 +131,46 @@ def thread_myo():
         gyro_tot = buildtotal(gyro_data_latest, gyro_tot, 3)
         
         
-        # Build the vector condition : if the modulo of time by 10000 is between 0 and 5000ms, 
-        # the instruction given is rest (0). Else, the condition takes a random value between 1 and 4, 
-        # giving the instruction for the patient ONLY if the previous value of 'condition' was 0. 
-        # Else, 'condition' takes its previous value.
+        #build the array of the conditions with randomized conditions. 
+        # There is always a rest step between 2 conditions.
+
+        # add 1 open and 1 close in the beginning because errors in the EMG
+        if 0 <= time_prov and time_prov <= 2*instructions[0,2]*1000 + instructions[1,2]*1000 :
+            if time_prov <= time_next :
+                condition = np.append(condition, [condition[-1]], axis=0)
+            else :
+                if condition[-1] == 0 : #if previous condition was Rest
+                    n = np.random.randint(1, 2)
+                    condition = np.append(condition, [instr[n, 1]], axis=0)
+                    time_previous = time_next
+                    time_next = time_previous + instr[n, 2] * 1000
+
+                else :
+                    condition = np.append(condition, [instr[0, 1]], axis=0)     
+                    time_previous = time_next
+                    time_next = time_previous + instr[0, 2] * 1000
+
+        elif time_prov <= time_next :
+            condition = np.append(condition, [condition[-1]], axis=0)
         
-        lim = int(time_condition) * 2 * 1000
-
-        if (time_prov % lim) >= 0 and (time_prov % lim) <= int(time_condition)*1000 :
-            condition = np.append(condition, [instr[0, 1]], axis=0)     
-            if instr.shape[0] == 1:
-                terminate_program = True
-
         else :
-            if condition [-1] == 0:
+            if condition[-1] == 0 : #if previous condition was Rest
                 n = np.random.randint(1, instr.shape[0])
                 condition = np.append(condition, [instr[n, 1]], axis=0)
-                instr[n, 2] -= 1
+                instr[n, 3] -= 1
+                time_previous = time_next
+                time_next = time_previous + instr[n, 2] * 1000
 
-                if instr[n, 2] == 0:
+                if instr[n, 3] == 0:
                     instr = np.delete(instr, n, 0)
-                    
+
             else :
-                condition = np.append(condition, [condition[-1]], axis=0) 
+                condition = np.append(condition, [instr[0, 1]], axis=0)     
+                time_previous = time_next
+                time_next = time_previous + instr[0, 2] * 1000
 
-        # print(instr)
-
+                if instr.shape[0] == 1:
+                    terminate_program = True
 
 # -----------------------------------------------
 # cleanup
@@ -174,7 +179,6 @@ def cleanup(argument):
     # terminate myo thread
     global terminate_program
     terminate_program = True
-
 
     # disconnect myo
     global myo_initialized
@@ -191,7 +195,6 @@ def setup_myo():
     
     print('Setting up myo ...')
     
-    #myo = MyoRaw(sys.argv[1] if len(sys.argv) >= 2 else None)
     myo = MyoRaw(None)
 
     def emg_handler(emg, moving, times=[]):
@@ -208,8 +211,6 @@ def setup_myo():
 
     myo.add_emg_handler(emg_handler)
     myo.add_imu_handler(imu_handler)
-    #myo.add_arm_handler(lambda arm, xdir: print('arm', arm, 'xdir', xdir))
-    #myo.add_pose_handler(lambda p: print('pose', p))
     myo.connect()
     myo_initialized = True
     print('Myo connected')
@@ -224,7 +225,7 @@ def setup_myo():
 def plot_graphs():
     
     # init window
-    app = QtGui.QApplication([])
+    QtGui.QApplication([])
 
     print('Starting up plots and QT ...')
 
@@ -321,17 +322,16 @@ def plot_graphs():
 #  Read xml file
 # -----------------------------------------------
 def read_xml():
-    global instructions, time_condition
+    global instructions
 
     root = ET.parse('parameters.xml').getroot()
 
-    for element in root.findall('params'):
-        time_condition = element.get('time')
-        n_repetitions = element.get('n_repetitions')
-
     for condi in root.findall('conditions/cond'):
-        ins = [[condi.get('instruction'), int(condi.get('number')), int(n_repetitions), condi.get('filename')]]
+        ins = [[condi.get('instruction'), int(condi.get('label')), 
+                float(condi.get('duration')), int(condi.get('trials')), 
+                condi.get('filename')]]
         instructions = np.vstack((instructions, np.asarray(ins, object)))
+
     instructions = np.delete(instructions, 0, axis=0)
 
 # -----------------------------------------------
@@ -361,13 +361,14 @@ def save_file():
     dico['name'] = pat_name
     dico['time'] = time_tot
     dico['condition'] = condition
+    dico['date'] = cdate
     
     if arm.get == 1 :
         dico['arm'] = 'left'
     else :
         dico['arm'] = 'right'
         
-    sio.savemat('%s_%s.mat' %(cdate, pat_name), dico)
+    sio.savemat('%s.mat' %(pat_name), dico)
     
 
 # -----------------------------------------------
@@ -432,11 +433,11 @@ def GUIwindow_instr ():
 
     message = tkinter.StringVar()
     
-    img = [Image.open(instructions[0, 3])]
+    img = [Image.open(instructions[0, 4])]
 
     #create an array of all the photos
     for i in range (1, instructions.shape[0]):
-        img.append(Image.open(instructions[i, 3]))
+        img.append(Image.open(instructions[i, 4]))
     
     #resize the photos
     for i in range (0, instructions.shape[0]):
@@ -484,8 +485,6 @@ def GUIwindow_instr ():
 # -----------------------------------------------
 def main(argv):
     import subprocess
-
-    global file_handle
     global plot_graph, thread_ended
    
     read_xml()
