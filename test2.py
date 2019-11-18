@@ -68,7 +68,7 @@ arm = '0'
 condition = np.array([0])
 instructions = np.array([["0", 0, 0, 0, 0]])
 nb_trials = 0
-
+trial_vector = np.array([0])
 
 
 # -----------------------------------------------
@@ -81,7 +81,7 @@ def thread_myo():
     global thread_ended
     global emg_tot, quat_tot, acc_tot, gyro_tot
     global time0, time_tot, time_previous, time_next
-    global condition, instructions, nb_trials, set_up
+    global condition, instructions, nb_trials, set_up, trial_vector
 
     # run loop
     print('Myo thread started.')
@@ -138,11 +138,14 @@ def thread_myo():
             # There is always a rest step between 2 conditions.
 
             # add 1 open and 1 close in the beginning because errors in the EMG
-            if time_prov >= 0 and time_prov < 1000:
+            if time_prov >= 0 and time_prov < 1000:#wait one second before starting
                 condition = np.append(condition, [condition[-1]], axis=0)
+                trial_vector = np.append(trial_vector, [trial_vector[-1]], axis=0)
+
             elif 1000 <= time_prov and time_prov <= 2*instructions[0,2]*1000 + instructions[1,2]*1000 :
                 if time_prov <= time_next :
                     condition = np.append(condition, [condition[-1]], axis=0)
+                    trial_vector = np.append(trial_vector, [trial_vector[-1]], axis=0)
                 else :
                     if condition[-1] == 0 : #if previous condition was Rest
                         n = np.random.randint(1, 2)
@@ -150,16 +153,17 @@ def thread_myo():
                         time_previous = time_next
                         time_next = time_previous + instr[n, 2] * 1000
                         nb_trials = nb_trials - 1
-                        
+                        trial_vector = np.append(trial_vector, [trial_vector[-1] + 1], axis=0)
 
-                    else :
+                    else : # if previous condition was open/close/...
                         condition = np.append(condition, [instr[0, 1]], axis=0)     
                         time_previous = time_next
                         time_next = time_previous + instr[0, 2] * 1000
-                        
+                        trial_vector = np.append(trial_vector, [trial_vector[-1]], axis=0)
 
             elif time_prov <= time_next :
                 condition = np.append(condition, [condition[-1]], axis=0)
+                trial_vector = np.append(trial_vector, [trial_vector[-1]], axis=0)
             
             else :
                 if condition[-1] == 0 : #if previous condition was Rest
@@ -169,7 +173,7 @@ def thread_myo():
                     time_previous = time_next
                     time_next = time_previous + instr[n, 2] * 1000
                     nb_trials = nb_trials - 1
-
+                    trial_vector = np.append(trial_vector, [trial_vector[-1] + 1], axis=0)
                     if instr[n, 3] == 0:
                         instr = np.delete(instr, n, 0)
                     
@@ -177,7 +181,7 @@ def thread_myo():
                     condition = np.append(condition, [instr[0, 1]], axis=0)     
                     time_previous = time_next
                     time_next = time_previous + instr[0, 2] * 1000
-
+                    trial_vector = np.append(trial_vector, [trial_vector[-1]], axis=0)
 
                     if instr.shape[0] == 1:
                         terminate_program = True
@@ -288,14 +292,14 @@ def read_xml():
         instructions = np.vstack((instructions, np.asarray(ins, object)))
         nb_trials = nb_trials + int(condi.get('trials'))
     instructions = np.delete(instructions, 0, axis=0)
-    nb_trials = nb_trials - 1
+    nb_trials = nb_trials + 1
 # -----------------------------------------------
 # Save to matlab file
 # -----------------------------------------------
 def save_file():
     global emg_tot, quat_tot, acc_tot, gyro_tot, time_tot
     global cdate, pat_name, pat_age, arm
-    global condition
+    global condition, trial_vector
     
     # get the date
     today = date.today()
@@ -317,6 +321,7 @@ def save_file():
     dico['time'] = time_tot
     dico['condition'] = condition
     dico['date'] = cdate
+    dico['trial_vector'] = trial_vector
     
     if arm.get == 1 :
         dico['arm'] = 'left'
