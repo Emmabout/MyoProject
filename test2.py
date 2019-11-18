@@ -56,6 +56,7 @@ time_tot = np.array([0])
 terminate_program = False
 thread_ended = False
 plot_graph = False
+set_up = False
 
 # Date, patient data
 cdate = 0
@@ -66,6 +67,9 @@ arm = '0'
 # Conditions : can be set in parameters.xml
 condition = np.array([0])
 instructions = np.array([["0", 0, 0, 0, 0]])
+nb_trials = 0
+
+
 
 # -----------------------------------------------
 # myo thread
@@ -77,15 +81,12 @@ def thread_myo():
     global thread_ended
     global emg_tot, quat_tot, acc_tot, gyro_tot
     global time0, time_tot, time_previous, time_next
-    global condition, instructions
+    global condition, instructions, nb_trials, set_up
 
     # run loop
     print('Myo thread started.')
-
-    time0 = time.time()*1000    # Time is in milliseconds
     instr = instructions
     time_previous = 0
-    time_next = time_previous + instr[0, 2]*1000
 
     while True:
         # check if thread has to be terminated
@@ -119,58 +120,68 @@ def thread_myo():
             array_tot = np.concatenate((array_tot, provisoire), axis=0)
             return array_tot
         
-        #get current time in milliseconds.
-        time_prov = time.time() * 1000 - time0
-        
-        # Build the final arrays (to be saved in .mat)
-        time_tot = np.append(time_tot, [time_prov], axis=0)
-         
-        emg_tot = buildtotal(emg_data_latest, emg_tot, 8)
-        quat_tot = buildtotal(quat_data_latest, quat_tot, 4)
-        acc_tot = buildtotal(acc_data_latest, acc_tot, 3)
-        gyro_tot = buildtotal(gyro_data_latest, gyro_tot, 3)
         
         
-        #build the array of the conditions with randomized conditions. 
-        # There is always a rest step between 2 conditions.
+        if not set_up:
+            time_next = time_previous + instr[0, 2]*1000
+            #get current time in milliseconds.
+            time_prov = time.time() * 1000 - time0
+            # Build the final arrays (to be saved in .mat)
+            time_tot = np.append(time_tot, [time_prov], axis=0)
+            
+            emg_tot = buildtotal(emg_data_latest, emg_tot, 8)
+            quat_tot = buildtotal(quat_data_latest, quat_tot, 4)
+            acc_tot = buildtotal(acc_data_latest, acc_tot, 3)
+            gyro_tot = buildtotal(gyro_data_latest, gyro_tot, 3)
+            
+            #build the array of the conditions with randomized conditions. 
+            # There is always a rest step between 2 conditions.
 
-        # add 1 open and 1 close in the beginning because errors in the EMG
-        if 0 <= time_prov and time_prov <= 2*instructions[0,2]*1000 + instructions[1,2]*1000 :
-            if time_prov <= time_next :
+            # add 1 open and 1 close in the beginning because errors in the EMG
+            if time_prov >= 0 and time_prov < 1000:
                 condition = np.append(condition, [condition[-1]], axis=0)
+            elif 1000 <= time_prov and time_prov <= 2*instructions[0,2]*1000 + instructions[1,2]*1000 :
+                if time_prov <= time_next :
+                    condition = np.append(condition, [condition[-1]], axis=0)
+                else :
+                    if condition[-1] == 0 : #if previous condition was Rest
+                        n = np.random.randint(1, 2)
+                        condition = np.append(condition, [instr[n, 1]], axis=0)
+                        time_previous = time_next
+                        time_next = time_previous + instr[n, 2] * 1000
+                        nb_trials = nb_trials - 1
+                        
+
+                    else :
+                        condition = np.append(condition, [instr[0, 1]], axis=0)     
+                        time_previous = time_next
+                        time_next = time_previous + instr[0, 2] * 1000
+                        
+
+            elif time_prov <= time_next :
+                condition = np.append(condition, [condition[-1]], axis=0)
+            
             else :
                 if condition[-1] == 0 : #if previous condition was Rest
-                    n = np.random.randint(1, 2)
+                    n = np.random.randint(1, instr.shape[0])
                     condition = np.append(condition, [instr[n, 1]], axis=0)
+                    instr[n, 3] -= 1
                     time_previous = time_next
                     time_next = time_previous + instr[n, 2] * 1000
+                    nb_trials = nb_trials - 1
 
+                    if instr[n, 3] == 0:
+                        instr = np.delete(instr, n, 0)
+                    
                 else :
                     condition = np.append(condition, [instr[0, 1]], axis=0)     
                     time_previous = time_next
                     time_next = time_previous + instr[0, 2] * 1000
 
-        elif time_prov <= time_next :
-            condition = np.append(condition, [condition[-1]], axis=0)
-        
-        else :
-            if condition[-1] == 0 : #if previous condition was Rest
-                n = np.random.randint(1, instr.shape[0])
-                condition = np.append(condition, [instr[n, 1]], axis=0)
-                instr[n, 3] -= 1
-                time_previous = time_next
-                time_next = time_previous + instr[n, 2] * 1000
 
-                if instr[n, 3] == 0:
-                    instr = np.delete(instr, n, 0)
-
-            else :
-                condition = np.append(condition, [instr[0, 1]], axis=0)     
-                time_previous = time_next
-                time_next = time_previous + instr[0, 2] * 1000
-
-                if instr.shape[0] == 1:
-                    terminate_program = True
+                    if instr.shape[0] == 1:
+                        terminate_program = True
+    
 
 # -----------------------------------------------
 # cleanup
@@ -223,95 +234,39 @@ def setup_myo():
 # Plot graphs
 # -----------------------------------------------
 def plot_graphs():
-    
     # init window
-    QtGui.QApplication([])
+    app = QtGui.QApplication([])
 
     print('Starting up plots and QT ...')
 
     win = pg.GraphicsWindow(title="Myo data")
-    win.closeEvent = cleanup
     win.resize(1000,1000)
     win.setWindowTitle('Myo data')
+    # pg.setConfigOptions(antialias=True) # Enable antialiasing for prettier plots
     pg.setConfigOption('background', 'k')
     pg.setConfigOption('foreground', 'w')
 
-    ratio = 1.5
+    colors = ['r', 'g', 'b', 'c', 'm', 'y', 'w', 'r'] 
+    p_emg = [None] * 8
+    emg = [None] * 8
 
-    p_emg = win.addPlot(title="EMG")
-    p_emg.setXRange(0,BUFFER_SIZE)
-    p_emg.setYRange(-2048*7*ratio, 2048)
-    p_emg.enableAutoRange('xy', False)    
-    
-    color = ['r', 'g', 'b', 'c', 'm', 'y', 'w', 'r']
-    emg_list = np.empty([8], dtype=pg.PlotDataItem)
-    
-    for i in range(8):
-        emg_list[i] = p_emg.plot(pen=color[i], name="emg" + str(i))
-        
-    win.nextRow()
+    for i, color in enumerate(colors):
+        p_emg[i] = win.addPlot(title="EMG " + str(i + 1))
+        p_emg[i].setXRange(0,BUFFER_SIZE)
+        p_emg[i].setYRange(-150, 150)
+        p_emg[i].enableAutoRange('xy', False)
+        emg[i] = p_emg[i].plot(pen=color, name="emg" + str(i + 1))
+        win.nextRow()
 
-    p_quat = win.addPlot(title="QUATERNIONs")
-    p_quat.setXRange(0,BUFFER_SIZE)
-    p_quat.setYRange(-3000*4*ratio, 3000)
-    p_quat.enableAutoRange('xy', False)
-    
-    
-    quat_a = p_quat.plot(pen='r', name="quaternionA")
-    quat_b = p_quat.plot(pen='g', name="quaternionB")
-    quat_c = p_quat.plot(pen='b', name="quaternionC")
-    quat_d = p_quat.plot(pen='w', name="quaternionD")
-    
-    quat = [quat_a, quat_b, quat_c, quat_d]
-    win.nextRow()
-
-    p_acc = win.addPlot(title="ACCELEROMETERs")
-    p_acc.setXRange(0,BUFFER_SIZE)
-    p_acc.setYRange(-3000*3*ratio, 3000)
-    p_acc.enableAutoRange('xy', False)
-    acceleration_x = p_acc.plot(pen='r', name="accelerationX")
-    acceleration_y = p_acc.plot(pen='g', name="accelerationY")
-    acceleration_z = p_acc.plot(pen='b', name="accelerationZ")
-    
-    acc_list = [acceleration_x, acceleration_y, acceleration_z]
-    win.nextRow()
-
-    p_gyro = win.addPlot(title="GYROSCOPEs")
-    p_gyro.setXRange(0,BUFFER_SIZE)
-    p_gyro.setYRange(-2048*3*ratio, 2048)
-    p_gyro.enableAutoRange('xy', False)
-    gyro_x = p_gyro.plot(pen='r', name="gyroX")
-    gyro_y = p_gyro.plot(pen='g', name="gyroY")
-    gyro_z = p_gyro.plot(pen='b', name="gyroZ")
-    
-    gyro_list = [gyro_x, gyro_y, gyro_z]
-    win.nextRow()
-
-    # ---------Update graphs
     def update():
         global emg_data_buffer
         for i in range(8):
-            emg_list[i].setData( emg_data_buffer[1:BUFFER_SIZE,i] - i*2048*ratio )
+            emg[i].setData(emg_data_buffer[1:BUFFER_SIZE,i])
 
-        global quat_data_buffer
-        for i in range(4):
-            quat[i].setData( quat_data_buffer[1:BUFFER_SIZE,i] - i*3000*ratio )
-
-        global acc_data_buffer
-        for i in range(3):
-            acc_list[i].setData( acc_data_buffer[1:BUFFER_SIZE,i] - i*3000*ratio )
-
-        global gyro_data_buffer
-        for i in range(3):
-            gyro_list[i].setData( gyro_data_buffer[1:BUFFER_SIZE,i] - i*2048*ratio )
-            
-    
-    update()        
-       
     timer = QtCore.QTimer()
     timer.timeout.connect(update)
     timer.start(10)
-
+   
     print('Plots set up.\n')
 
     if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
@@ -322,7 +277,7 @@ def plot_graphs():
 #  Read xml file
 # -----------------------------------------------
 def read_xml():
-    global instructions
+    global instructions, nb_trials
 
     root = ET.parse('parameters.xml').getroot()
 
@@ -331,9 +286,9 @@ def read_xml():
                 float(condi.get('duration')), int(condi.get('trials')), 
                 condi.get('filename')]]
         instructions = np.vstack((instructions, np.asarray(ins, object)))
-
+        nb_trials = nb_trials + int(condi.get('trials'))
     instructions = np.delete(instructions, 0, axis=0)
-
+    nb_trials = nb_trials - 1
 # -----------------------------------------------
 # Save to matlab file
 # -----------------------------------------------
@@ -426,15 +381,16 @@ def GUIwindow_data ():
 # -----------------------------------------------
 def GUIwindow_instr ():
     
-    global time_tot, instructions
+    global time_tot, instructions, nb_trials
     window = tkinter.Tk()
     window.geometry("500x600") 
     window.title("Instructions")
 
     message = tkinter.StringVar()
-    
-    img = [Image.open(instructions[0, 4])]
+    remaining_trials = tkinter.StringVar()
 
+    img = [Image.open(instructions[0, 4])]
+    
     #create an array of all the photos
     for i in range (1, instructions.shape[0]):
         img.append(Image.open(instructions[i, 4]))
@@ -447,7 +403,7 @@ def GUIwindow_instr ():
     panel.grid (row=0, column=1)
 
     def update():
-        global instructions, condition
+        global instructions, condition, nb_trials
         
         for i in range (0, instructions.shape[0]):
             if condition[-1] == instructions[i, 1]:
@@ -457,10 +413,12 @@ def GUIwindow_instr ():
 
         panel.configure(image = photo)
         panel.image = photo
+        remaining_trials.set("Remaining trials : " + str(nb_trials))
         window.after(300, update)
     
     tkinter.Label(window, textvariable=message).grid(row=1, column=1)
-
+    tkinter.Label(window, textvariable=remaining_trials).grid(row=2, column=1)
+    
     def quitprog ():
         global terminate_program
         terminate_program = True
@@ -485,12 +443,15 @@ def GUIwindow_instr ():
 # -----------------------------------------------
 def main(argv):
     import subprocess
-    global plot_graph, thread_ended
-   
+    global plot_graph, thread_ended, set_up, time0
+    set_up = True
     read_xml()
-    GUIwindow_data()
     setup_myo()
-    #plot_graphs()
+    plot_graphs()
+    
+    GUIwindow_data()
+    set_up = False
+    time0 = time.time()*1000    # Time is in milliseconds
     GUIwindow_instr()
     while not thread_ended:
         pass
