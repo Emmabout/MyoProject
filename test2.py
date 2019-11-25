@@ -398,7 +398,7 @@ def GUIwindow_instr ():
 
     message = tkinter.StringVar()
     remaining_trials = tkinter.StringVar()
-    elapsed_time = tkinter.StringVar()
+    # elapsed_time = tkinter.StringVar()
 
     #create an array of all the photos
     img = []
@@ -417,6 +417,7 @@ def GUIwindow_instr ():
         global instructions, condition, nb_trials
         global image, copy_of_image
         
+
         for i in range (0, instructions.shape[0]):
             if condition[-1] == instructions[i, 1]:
                 msg = instructions[i,0]
@@ -439,7 +440,7 @@ def GUIwindow_instr ():
 
         # panel.image = image
         remaining_trials.set("Remaining trials : " + str(nb_trials))
-        elapsed_time.set("Elapsed time : " + str(int(time_prov/1000)))
+        # elapsed_time.set("Elapsed time : " + str(int(time_prov/1000)))
         window.after(30, update)
     
 
@@ -470,7 +471,7 @@ def GUIwindow_instr ():
     mess.grid(row=1, column=1)
     mess.config(font='Courier, 44')
     tkinter.Label(window, textvariable=remaining_trials).grid(row=2, column=1)
-    tkinter.Label(window, textvariable=elapsed_time).grid(row=3, column=1)
+    # tkinter.Label(window, textvariable=elapsed_time).grid(row=3, column=1)
 
     def quitprog ():
         global terminate_program
