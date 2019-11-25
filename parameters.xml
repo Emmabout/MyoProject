@@ -4,12 +4,11 @@
     <conditions>
         <!-- Time in seconds --> 
         <!-- "Rest must stay as first condition" --> 
-        <cond instruction="Rest" label="0" duration="3" trials="1" filename="photos/rest.jpg"/> 
+        <cond instruction="Rest" label="0" duration="10" trials="1" filename="photos/rest.jpg"/> 
         
-        <cond instruction="Open" label="1" duration="5" trials="10" filename="photos/open.jpg"/> 
-        <cond instruction="Close" label="2" duration="5" trials="10" filename="photos/close.jpg"/> 
+        <cond instruction="Open" label="1" duration="4" trials="10" filename="photos/open.jpg"/> 
+        <cond instruction="Close" label="2" duration="4" trials="10" filename="photos/close.jpg"/> 
         <!-- <cond instruction="Open with exo" label="3" duration="5" trials="5" filename="photos/openexo.jpg"/> 
         <cond instruction="Close with exo" label="4" duration="5" trials="5" filename="photos/closeexo.jpg"/>   -->
     </conditions>
-    
 </data>

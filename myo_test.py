@@ -281,107 +281,55 @@ def main(argv):
 	print('Myo setup.\n')
 
 
+	# --- setup QT
+	if plot_graph:
 		# init window
-	app = QtGui.QApplication([])
+		app = QtGui.QApplication([])
 
-	print('Starting up plots and QT ...')
+		print('Starting up plots and QT ...')
 
-	win = pg.GraphicsWindow(title="Myo data")
-	win.closeEvent = cleanup
-	win.resize(1000,1000)
-	win.setWindowTitle('Myo data')
-	pg.setConfigOptions(antialias=True) # Enable antialiasing for prettier plots
-	pg.setConfigOption('background', 'k')
-	#pg.setConfigOption('background', pg.mkColor(255,255,255) )
-	pg.setConfigOption('foreground', 'w')
+		win = pg.GraphicsWindow(title="Myo data")
+		win.closeEvent = cleanup
+		win.resize(1000,1000)
+		win.setWindowTitle('Myo data')
+		# pg.setConfigOptions(antialias=True) # Enable antialiasing for prettier plots
+		pg.setConfigOption('background', 'k')
+		#pg.setConfigOption('background', pg.mkColor(255,255,255) )
+		pg.setConfigOption('foreground', 'w')
 
-	ratio = 1.5
-	#win.setLineWidth(100)
+		colors = ['r', 'g', 'b', 'c', 'm', 'y', 'w', 'r'] 
+		p_emg = [None] * 8
+		emg = [None] * 8
+	
+		for i, color in enumerate(colors):
+			p_emg[i] = win.addPlot(title="EMG " + str(i + 1))
+			p_emg[i].setXRange(0,BUFFER_SIZE)
+			p_emg[i].setYRange(-150, 150)
+			p_emg[i].enableAutoRange('xy', False)
+			emg[i] = p_emg[i].plot(pen=color, name="emg" + str(i + 1))
+			win.nextRow()
 
-	p_emg = win.addPlot(title="EMG")
-	p_emg.setXRange(0,BUFFER_SIZE)
-	p_emg.setYRange(-2048*7*ratio, 2048)
-	p_emg.enableAutoRange('xy', False)
-	emg1 = p_emg.plot(pen='r', name="emg1")
-	emg2 = p_emg.plot(pen='g', name="emg2")
-	emg3 = p_emg.plot(pen='b', name="emg3")
-	emg4 = p_emg.plot(pen='c', name="emg4")
-	emg5 = p_emg.plot(pen='m', name="emg5")
-	emg6 = p_emg.plot(pen='y', name="emg6")
-	emg7 = p_emg.plot(pen='w', name="emg7")
-	emg8 = p_emg.plot(pen='r', name="emg8")
-
-	win.nextRow()
-
-	p_quat = win.addPlot(title="QUATERNIONs")
-	p_quat.setXRange(0,BUFFER_SIZE)
-	p_quat.setYRange(-3000*4*ratio, 3000)
-	p_quat.enableAutoRange('xy', False)
-	quat_a = p_quat.plot(pen='r', name="quaternionA")
-	quat_b = p_quat.plot(pen='g', name="quaternionB")
-	quat_c = p_quat.plot(pen='b', name="quaternionC")
-	quat_d = p_quat.plot(pen='w', name="quaternionD")
-
-	win.nextRow()
-
-	p_acc = win.addPlot(title="ACCELEROMETERs")
-	p_acc.setXRange(0,BUFFER_SIZE)
-	p_acc.setYRange(-3000*3*ratio, 3000)
-	p_acc.enableAutoRange('xy', False)
-	acceleration_x = p_acc.plot(pen='r', name="accelerationX")
-	acceleration_y = p_acc.plot(pen='g', name="accelerationY")
-	acceleration_z = p_acc.plot(pen='b', name="accelerationX")
-
-	win.nextRow()
-
-	p_gyro = win.addPlot(title="GYROSCOPEs")
-	p_gyro.setXRange(0,BUFFER_SIZE)
-	p_gyro.setYRange(-2048*3*ratio, 2048)
-	p_gyro.enableAutoRange('xy', False)
-	gyro_x = p_gyro.plot(pen='r', name="gyroX")
-	gyro_y = p_gyro.plot(pen='g', name="gyroY")
-	gyro_z = p_gyro.plot(pen='b', name="gyroZ")
-
-	win.nextRow()
-
-	def update():
-		global verbose
-		#if verbose:
-		#	print('updating graphs...')
-		global emg_data_buffer
-		emg1.setData( emg_data_buffer[1:BUFFER_SIZE,0] - 0*2048*ratio )
-		emg2.setData( emg_data_buffer[1:BUFFER_SIZE,1] - 1*2048*ratio )
-		emg3.setData( emg_data_buffer[1:BUFFER_SIZE,2] - 2*2048*ratio )
-		emg4.setData( emg_data_buffer[1:BUFFER_SIZE,3] - 3*2048*ratio )
-		emg5.setData( emg_data_buffer[1:BUFFER_SIZE,4] - 4*2048*ratio )
-		emg6.setData( emg_data_buffer[1:BUFFER_SIZE,5] - 5*2048*ratio )
-		emg7.setData( emg_data_buffer[1:BUFFER_SIZE,6] - 6*2048*ratio )
-		emg8.setData( emg_data_buffer[1:BUFFER_SIZE,7] - 7*2048*ratio )
-		global quat_data_buffer
-		quat_a.setData( quat_data_buffer[1:BUFFER_SIZE,0] - 0*3000*ratio )
-		quat_b.setData( quat_data_buffer[1:BUFFER_SIZE,1] - 1*3000*ratio )
-		quat_c.setData( quat_data_buffer[1:BUFFER_SIZE,2] - 2*3000*ratio )
-		quat_d.setData( quat_data_buffer[1:BUFFER_SIZE,2] - 3*3000*ratio )
-		global acc_data_buffer
-		acceleration_x.setData( acc_data_buffer[1:BUFFER_SIZE,0] - 0*3000*ratio )
-		acceleration_y.setData( acc_data_buffer[1:BUFFER_SIZE,1] - 1*3000*ratio )
-		acceleration_z.setData( acc_data_buffer[1:BUFFER_SIZE,2] - 2*3000*ratio )
-		global gyro_data_buffer
-		gyro_x.setData( gyro_data_buffer[1:BUFFER_SIZE,0] - 0*2048*ratio )
-		gyro_y.setData( gyro_data_buffer[1:BUFFER_SIZE,1] - 1*2048*ratio )
-		gyro_z.setData( gyro_data_buffer[1:BUFFER_SIZE,2] - 2*2048*ratio )
+		def update():
+			global emg_data_buffer
+			for i in range(8):
+				emg[i].setData(emg_data_buffer[1:BUFFER_SIZE,i])
 
 
-	timer = QtCore.QTimer()
-	timer.timeout.connect(update)
-	timer.start(10)
+		timer = QtCore.QTimer()
+		timer.timeout.connect(update)
+		timer.start(10)
 
-	print('Plots set up.\n')
+		print('Plots set up.\n')
 
-	if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
-		QtGui.QApplication.instance().exec_()
+		if (sys.flags.interactive != 1) or not hasattr(QtCore, 'PYQT_VERSION'):
+			QtGui.QApplication.instance().exec_()
 
-
+	# no graphs
+	else:
+		while(1):
+			#if verbose:
+			#	print('whiling.. :D')
+			1 #do nothing (the threads will perform something, e.g. writing the received values on terminal)
 
 
 

@@ -123,7 +123,6 @@ def thread_myo():
         
         
         if not set_up:
-            time_next = time_previous + instr[0, 2]*1000
             #get current time in milliseconds.
             time_prov = time.time() * 1000 - time0
             # Build the final arrays (to be saved in .mat)
@@ -141,16 +140,19 @@ def thread_myo():
             if time_prov >= 0 and time_prov < 1000:#wait one second before starting
                 condition = np.append(condition, [condition[-1]], axis=0)
                 trial_vector = np.append(trial_vector, [trial_vector[-1]], axis=0)
+                
 
             elif 1000 <= time_prov and time_prov <= 2*instructions[0,2]*1000 + instructions[1,2]*1000 :
+                
                 if time_prov <= time_next :
                     condition = np.append(condition, [condition[-1]], axis=0)
                     trial_vector = np.append(trial_vector, [trial_vector[-1]], axis=0)
-                else :
+                else : 
                     if condition[-1] == 0 : #if previous condition was Rest
                         n = np.random.randint(1, 2)
                         condition = np.append(condition, [instr[n, 1]], axis=0)
                         time_previous = time_next
+                        
                         time_next = time_previous + instr[n, 2] * 1000
                         nb_trials = nb_trials - 1
                         trial_vector = np.append(trial_vector, [trial_vector[-1] + 1], axis=0)
@@ -387,43 +389,84 @@ def GUIwindow_data ():
 def GUIwindow_instr ():
     
     global time_tot, instructions, nb_trials
+
+    #init window
     window = tkinter.Tk()
-    window.geometry("500x600") 
+    window.geometry("500x1000") 
     window.title("Instructions")
 
     message = tkinter.StringVar()
     remaining_trials = tkinter.StringVar()
 
-    img = [Image.open(instructions[0, 4])]
-    
     #create an array of all the photos
-    for i in range (1, instructions.shape[0]):
+    img = []
+    for i in range (0, instructions.shape[0]):
         img.append(Image.open(instructions[i, 4]))
     
     #resize the photos
-    for i in range (0, instructions.shape[0]):
-        img[i] = ImageTk.PhotoImage(img[i].resize((250, 480)))
+    # for i in range (0, instructions.shape[0]):
+    #     img[i] = ImageTk.PhotoImage(img[i].resize((250, 480)))
 
-    panel = tkinter.Label(window, image=img[0])
-    panel.grid (row=0, column=1)
+    image = img[0]
+    copy_of_image = image
+    photo = ImageTk.PhotoImage(image)
 
     def update():
         global instructions, condition, nb_trials
+        global image, copy_of_image
         
         for i in range (0, instructions.shape[0]):
             if condition[-1] == instructions[i, 1]:
                 msg = instructions[i,0]
                 message.set(msg) 
-                photo = img[i]
+                image = img[i]
+                copy_of_image = image
+                break
+                
+        h = image.size[1]
+        w = image.size[0]
 
-        panel.configure(image = photo)
-        panel.image = photo
+        ratio_height = panel.winfo_height()/h
+        ratio_width = panel.winfo_width()/w
+
+        ratio = min(ratio_height, ratio_width)
+        copy_of_image = image.resize((int(w*ratio), int(h*ratio)))
+        photo = ImageTk.PhotoImage(copy_of_image)
+        panel.config(image = photo)
+        panel.image = photo #avoid garbage collection
+
+        # panel.image = image
         remaining_trials.set("Remaining trials : " + str(nb_trials))
-        window.after(300, update)
+        window.after(30, update)
     
+
+    def resize_image(event):
+        global image, copy_of_image
+        try: image
+        except NameError: update()
+
+        h = image.size[1]
+        w = image.size[0]
+
+        ratio_height = event.height/h
+        ratio_width = event.width/w
+
+        ratio = min(ratio_height, ratio_width)
+
+        copy_of_image = image.resize((int(w*ratio), int(h*ratio)))
+        
+        photo = ImageTk.PhotoImage(copy_of_image)
+        panel.config(image = photo)
+        panel.image = photo #avoid garbage collection
+
+    panel = tkinter.Label(window, image = photo)
+    panel.bind('<Configure>', resize_image)
+    panel.grid (row=0, column=1)
+
     tkinter.Label(window, textvariable=message).grid(row=1, column=1)
     tkinter.Label(window, textvariable=remaining_trials).grid(row=2, column=1)
     
+
     def quitprog ():
         global terminate_program
         terminate_program = True
