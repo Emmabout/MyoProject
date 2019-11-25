@@ -36,6 +36,7 @@ myo_initialized = False
 time0 = 0
 time_previous = 0
 time_next = 0
+time_prov = 0
 
 emg_data_buffer = np.zeros((BUFFER_SIZE, 8))
 emg_data_latest = np.zeros((1, 8))
@@ -80,7 +81,7 @@ def thread_myo():
            gyro_data_buffer
     global thread_ended
     global emg_tot, quat_tot, acc_tot, gyro_tot
-    global time0, time_tot, time_previous, time_next
+    global time0, time_tot, time_previous, time_next, time_prov
     global condition, instructions, nb_trials, set_up, trial_vector
 
     # run loop
@@ -135,14 +136,14 @@ def thread_myo():
             
             #build the array of the conditions with randomized conditions. 
             # There is always a rest step between 2 conditions.
-
-            # add 1 open and 1 close in the beginning because errors in the EMG
-            if time_prov >= 0 and time_prov < 1000:#wait one second before starting
+            
+            if time_prov >= 0 and time_prov < instr[0, 2]*1000:#wait before starting
                 condition = np.append(condition, [condition[-1]], axis=0)
                 trial_vector = np.append(trial_vector, [trial_vector[-1]], axis=0)
+                time_next = instr[0, 2]*1000
                 
 
-            elif 1000 <= time_prov and time_prov <= 2*instructions[0,2]*1000 + instructions[1,2]*1000 :
+            elif instr[0, 2]*1000 <= time_prov and time_prov <= 2*instructions[0,2]*1000 + 2*instructions[1,2]*1000 :
                 
                 if time_prov <= time_next :
                     condition = np.append(condition, [condition[-1]], axis=0)
@@ -388,7 +389,7 @@ def GUIwindow_data ():
 # -----------------------------------------------
 def GUIwindow_instr ():
     
-    global time_tot, instructions, nb_trials
+    global time_tot, instructions, nb_trials, time_prov
 
     #init window
     window = tkinter.Tk()
@@ -397,6 +398,7 @@ def GUIwindow_instr ():
 
     message = tkinter.StringVar()
     remaining_trials = tkinter.StringVar()
+    elapsed_time = tkinter.StringVar()
 
     #create an array of all the photos
     img = []
@@ -437,6 +439,7 @@ def GUIwindow_instr ():
 
         # panel.image = image
         remaining_trials.set("Remaining trials : " + str(nb_trials))
+        elapsed_time.set("Elapsed time : " + str(int(time_prov/1000)))
         window.after(30, update)
     
 
@@ -463,9 +466,11 @@ def GUIwindow_instr ():
     panel.bind('<Configure>', resize_image)
     panel.grid (row=0, column=1)
 
-    tkinter.Label(window, textvariable=message).grid(row=1, column=1)
+    mess = tkinter.Label(window, textvariable=message)
+    mess.grid(row=1, column=1)
+    mess.config(font='Courier, 44')
     tkinter.Label(window, textvariable=remaining_trials).grid(row=2, column=1)
-    
+    tkinter.Label(window, textvariable=elapsed_time).grid(row=3, column=1)
 
     def quitprog ():
         global terminate_program
@@ -477,10 +482,10 @@ def GUIwindow_instr ():
 
     # buttons exit and save
     btn_exit = tkinter.Button(window, text="Exit", command=sys.exit, fg='red')
-    btn_exit.grid(row=2, column=0, sticky='sw')    
+    btn_exit.grid(row=3, column=0, sticky='sw')    
 
     btn_save = tkinter.Button(window, text="Save", command=quitprog)
-    btn_save.grid(row=2, column=2, sticky='e')
+    btn_save.grid(row=3, column=2, sticky='e')
     
     window.after(300, update)
     window.mainloop()
