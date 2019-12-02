@@ -427,8 +427,11 @@ def GUIwindow_instr ():
                 message.set(msg) 
                 image = img[i]
                 copy_of_image = image
-                if thread_ended:
-                    message.set("ERROR")
+                if thread_ended :
+                    if nb_trials == 0:
+                        message.set("END")
+                    else:
+                        message.set("ERROR")
                 break
                 
         h = image.size[1]
