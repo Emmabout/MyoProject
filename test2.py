@@ -95,9 +95,12 @@ def thread_myo():
         if terminate_program:
             print('Myo thread terminated.')
             thread_ended = True
-            _thread.exit_thread()    
+            _thread.exit_thread()
 
-        myo.run()
+        if not myo.run(1):
+            print('Myo thread terminated.')
+            thread_ended = True
+            _thread.exit_thread()
 
         # update buffers
         emg_data_buffer = np.roll(emg_data_buffer,-1,0)
@@ -389,7 +392,7 @@ def GUIwindow_data ():
 # -----------------------------------------------
 def GUIwindow_instr ():
     
-    global time_tot, instructions, nb_trials, time_prov
+    global time_tot, instructions, nb_trials, time_prov, thread_ended
 
     #init window
     window = tkinter.Tk()
@@ -424,6 +427,8 @@ def GUIwindow_instr ():
                 message.set(msg) 
                 image = img[i]
                 copy_of_image = image
+                if thread_ended:
+                    message.set("ERROR")
                 break
                 
         h = image.size[1]

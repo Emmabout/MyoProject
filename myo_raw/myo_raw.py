@@ -215,7 +215,9 @@ class MyoRaw(object):
         return None
 
     def run(self, timeout=None):
-        self.bt.recv_packet(timeout)
+        res = self.bt.recv_packet(timeout)
+        #print(res)
+        return not (res is None)
 
     def connect(self):
         # stop everything from before
