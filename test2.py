@@ -68,7 +68,8 @@ arm = '0'
 # Conditions : can be set in parameters.xml
 condition = np.array([0])
 instructions = np.array([["0", 0, 0, 0, 0]])
-nb_trials = 0
+nb_trials = 0       #number of achieved trials
+nb_trials_tot = 0   #total number of trials
 trial_vector = np.array([0])
 
 
@@ -158,7 +159,7 @@ def thread_myo():
                         time_previous = time_next
                         
                         time_next = time_previous + instr[n, 2] * 1000
-                        nb_trials = nb_trials - 1
+                        nb_trials = nb_trials + 1
                         trial_vector = np.append(trial_vector, [trial_vector[-1] + 1], axis=0)
 
                     else : # if previous condition was open/close/...
@@ -178,7 +179,7 @@ def thread_myo():
                     instr[n, 3] -= 1
                     time_previous = time_next
                     time_next = time_previous + instr[n, 2] * 1000
-                    nb_trials = nb_trials - 1
+                    nb_trials = nb_trials + 1
                     trial_vector = np.append(trial_vector, [trial_vector[-1] + 1], axis=0)
                     if instr[n, 3] == 0:
                         instr = np.delete(instr, n, 0)
@@ -287,7 +288,7 @@ def plot_graphs():
 #  Read xml file
 # -----------------------------------------------
 def read_xml():
-    global instructions, nb_trials
+    global instructions, nb_trials_tot
 
     root = ET.parse('parameters.xml').getroot()
 
@@ -296,9 +297,9 @@ def read_xml():
                 float(condi.get('duration')), int(condi.get('trials')), 
                 condi.get('filename')]]
         instructions = np.vstack((instructions, np.asarray(ins, object)))
-        nb_trials = nb_trials + int(condi.get('trials'))
+        nb_trials_tot = nb_trials_tot + int(condi.get('trials'))
     instructions = np.delete(instructions, 0, axis=0)
-    nb_trials = nb_trials + 1
+    nb_trials_tot = nb_trials_tot + 1
 # -----------------------------------------------
 # Save to matlab file
 # -----------------------------------------------
@@ -392,7 +393,7 @@ def GUIwindow_data ():
 # -----------------------------------------------
 def GUIwindow_instr ():
     
-    global time_tot, instructions, nb_trials, time_prov, thread_ended
+    global time_tot, instructions, nb_trials, time_prov, thread_ended, nb_trials_tot
 
     #init window
     window = tkinter.Tk()
@@ -401,16 +402,11 @@ def GUIwindow_instr ():
 
     message = tkinter.StringVar()
     remaining_trials = tkinter.StringVar()
-    # elapsed_time = tkinter.StringVar()
 
     #create an array of all the photos
     img = []
     for i in range (0, instructions.shape[0]):
         img.append(Image.open(instructions[i, 4]))
-    
-    #resize the photos
-    # for i in range (0, instructions.shape[0]):
-    #     img[i] = ImageTk.PhotoImage(img[i].resize((250, 480)))
 
     image = img[0]
     copy_of_image = image
@@ -428,7 +424,7 @@ def GUIwindow_instr ():
                 image = img[i]
                 copy_of_image = image
                 if thread_ended :
-                    if nb_trials == 0:
+                    if nb_trials == nb_trials_tot:
                         message.set("END")
                     else:
                         message.set("ERROR")
@@ -447,7 +443,7 @@ def GUIwindow_instr ():
         panel.image = photo #avoid garbage collection
 
         # panel.image = image
-        remaining_trials.set("Remaining trials : " + str(nb_trials))
+        remaining_trials.set("Trial : " + str(nb_trials) + "/" + str(nb_trials_tot))
         # elapsed_time.set("Elapsed time : " + str(int(time_prov/1000)))
         window.after(30, update)
     
