@@ -237,6 +237,7 @@ def setup_myo():
     myo_initialized = True
     print('Myo connected')
 
+    myo.sleep_mode(1)
 
     _thread.start_new_thread(thread_myo, ())
     print('Myo setup.\n')
@@ -486,11 +487,11 @@ def GUIwindow_instr ():
     window.rowconfigure(0, weight=1)
 
     # buttons exit and save
-    btn_exit = tkinter.Button(window, text="Exit", command=sys.exit, fg='red')
-    btn_exit.grid(row=3, column=0, sticky='sw')    
+    # btn_exit = tkinter.Button(window, text="Exit", command=sys.exit, fg='red')
+    # btn_exit.grid(row=3, column=0, sticky='sw')    
 
-    btn_save = tkinter.Button(window, text="Save", command=quitprog)
-    btn_save.grid(row=3, column=2, sticky='e')
+    btn_save = tkinter.Button(window, text="Save and Exit", command=quitprog, fg='red')
+    btn_save.grid(row=3, column=1, sticky='e')
     
     window.after(300, update)
     window.mainloop()
