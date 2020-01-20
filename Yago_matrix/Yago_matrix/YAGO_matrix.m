@@ -13,7 +13,7 @@
 
 clc; clear all; close all;
 %% Load data 
-pathname = '/home/bouton/Documents/MyoProject-master/Yago_matrix/Data/S9.mat';
+pathname = '/home/bouton/Documents/20190923_MyoPython/Yago_matrix/Yago_matrix/Data/S9.mat';
 Data = load(pathname);
 
 %% Variables Initialization and Resampling

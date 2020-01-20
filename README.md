@@ -1,9 +1,11 @@
 # Overview
 This project provides a Python3 software interface to communicate with the Thalmic Myo armband.
-The project is built upon the 'myo_raw' library, downloaded from: https://github.com/dzhu/myo-raw
----------
-The following library was downloaded instead : https://github.com/dzhu/myo-raw/pull/23/files
+The project is built upon the 'myo_raw' library, pull request 23 : https://github.com/dzhu/myo-raw/pull/23/files
 It allows to get the raw data from the myo, see the battery life, and more.
+
+
+---------
+The official myo-raw library is : https://github.com/dzhu/myo-raw
 
 # Preliminary steps
 Perform these steps:
@@ -30,4 +32,4 @@ python3 ./test2.py
 sudo apt-get install python3-pil.imagetk
 
 # Author and latest update
-Emma Bouton-Bessac 2019.11
+Emma Bouton-Bessac 2020.01

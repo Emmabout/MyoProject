@@ -259,11 +259,14 @@ def plot_graphs():
     pg.setConfigOption('foreground', 'w')
 
     colors = ['r', 'g', 'b', 'c', 'm', 'y', 'w', 'r'] 
+    muscles = ['Flexor Carpi Ulnaris','Flexor carpi ulnaris','Extensor carpi ulnaris','Extensor digitorum','Extensor carpi radialis',
+                'Extensor carpi radialis lungus','Brachiocardialis','Flexor digitorum Profundus']
+
     p_emg = [None] * 8
     emg = [None] * 8
 
     for i, color in enumerate(colors):
-        p_emg[i] = win.addPlot(title="EMG " + str(i + 1))
+        p_emg[i] = win.addPlot(title=muscles[i])
         p_emg[i].setXRange(0,BUFFER_SIZE)
         p_emg[i].setYRange(-150, 150)
         p_emg[i].enableAutoRange('xy', False)
@@ -384,7 +387,7 @@ def GUIwindow_data ():
     btn_exit = tkinter.Button(window, text="Exit", command=sys.exit, fg='red')
     btn_exit.grid(row=2, column=0, sticky='sw')    
 
-    btn_ok = tkinter.Button(window, text="OK", command=win_des)
+    btn_ok = tkinter.Button(window, text="Start", command=win_des, fg='green')
     btn_ok.grid(row=2, column=2, sticky='se')
 
     window.mainloop()
@@ -490,7 +493,7 @@ def GUIwindow_instr ():
     # btn_exit = tkinter.Button(window, text="Exit", command=sys.exit, fg='red')
     # btn_exit.grid(row=3, column=0, sticky='sw')    
 
-    btn_save = tkinter.Button(window, text="Save and Exit", command=quitprog, fg='red')
+    btn_save = tkinter.Button(window, text="Save and Exit", command=quitprog, fg='green')
     btn_save.grid(row=3, column=1, sticky='e')
     
     window.after(300, update)
